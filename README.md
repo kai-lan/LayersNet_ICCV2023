@@ -5,10 +5,10 @@ This is the official repository of "Towards Multi-Layered 3D Garments Animation,
 
 **Authors**: Yidi Shao, [Chen Change Loy](https://www.mmlab-ntu.com/person/ccloy/),  and [Bo Dai](http://daibo.info/).
 
-**Acknowedgement**: This study is supported under the RIE2020 Industry Alignment Fund Industry Collaboration Projects (IAF-ICP) Funding Initiative, as well as cash and in-kind contribution from the industry partner(s). It is also supported by Singapore MOE AcRF Tier 2 (MOE-T2EP20221-0011) and Shanghai AI Laboratory. 
+**Acknowedgement**: This study is supported under the RIE2020 Industry Alignment Fund Industry Collaboration Projects (IAF-ICP) Funding Initiative, as well as cash and in-kind contribution from the industry partner(s). It is also supported by Singapore MOE AcRF Tier 2 (MOE-T2EP20221-0011) and Shanghai AI Laboratory.
 
 
-**Feel free to ask questions. I am currently working on some other stuff but will try my best to reply. Please don't hesitate to star!** 
+**Feel free to ask questions. I am currently working on some other stuff but will try my best to reply. Please don't hesitate to star!**
 
 ## News
 - 4 Aug, 2023: Codes released
@@ -35,41 +35,49 @@ We train our model with 4 V100.
 
 
 ### Installation
-1. Create a conda environment with necessary packages
+1. Create a conda environment
 ```
-# PyTorch 1.10
-conda create -n LayersNet python=3.8 pytorch=1.10 cudatoolkit=11.3 torchvision==0.11.0 torchaudio==0.10.0 -c pytorch -y
+conda create -n LayersNet python=3.11
 conda activate LayersNet
-
-# mmcv-full
-pip3 install openmim
-mim install mmcv-full==1.6.1
-
-# Other dependent packages
+```
+2. install pytorch (using `conda install` is very slow, so using pip3)
+```
+pip3 install torch torchvision torchaudio
+```
+3. install and build `mmcv`
+```
+git clone git@github.com:open-mmlab/mmcv.git --branch 1.x
+cd mmcv
+MMCV_WITH_OPS=1 pip install -e .
+```
+4. Install other dependent packages
+```
 pip3 install h5py pyrender trimesh numpy==1.23.1 tqdm plotly scipy chumpy matplotlib
 ```
-2. Clone and install this repo
+5. Clone and install this repo forked from the origin
 ```
-git clone https://github.com/ftbabi/LayersNet_ICCV2023.git
+git clone git@github.com:kai-lan/LayersNet_ICCV2023.git
 
 cd LayersNet_ICCV2023
 pip3 install -v -e .
 ```
 
 ### Dataset Preparation
-1. Download [LAYERS](https://github.com/ftbabi/D-LAYERS_ICCV2023.git) and create a soft link to [LAYERS](https://github.com/ftbabi/D-LAYERS_ICCV2023.git) dataset.
+1. Datasets have been prepared for you, and you just need to create a link inside your `LayersNet_ICCV2023` folder:
 ```
-ln -s PATH/TO/LAYERS/ data
+ln -s /data2/D-Layers/D-LAYERS___D-LAYERS data
 ```
-2. To generate data for this repo, use the following commands
+2. Data have been preprocessed for you, and are saved in `/data2/D-Layers/D-LAYERS___D-LAYERS/generated_data`. The following commends are for reference only, and you __DO NOT__ need to run them.
 ```
 # Prepare the static information
-python tools/preprocessing_data.py configs/layersnet/base/ep1.py --work_dir PATH/TO/LOG/DIR --dataset [train/val/test] --type static
+python tools/preprocessing_data.py configs/layersnet/base/ep1.py --work_dir output --dataset train --type static
 
 # Prepare the dynamic information, e.g., velocity
-python tools/preprocessing_data.py configs/layersnet/base/ep1.py --work_dir PATH/TO/LOG/DIR --dataset [train/val/test] --type dynamic
+python tools/preprocessing_data.py configs/layersnet/base/ep1.py --work_dir output --dataset train --type dynamic
 ```
 
+TODO: update training and testing
+---
 ### Training
 Train on multiple GPUs
 ```

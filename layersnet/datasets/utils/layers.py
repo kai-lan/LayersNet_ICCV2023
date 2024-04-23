@@ -9,17 +9,17 @@ from layersnet.datasets.smpl import SMPLModel
 META_FN = 'meta.json'
 
 GARMENT_TYPE = [
-    'jacket', 
+    'jacket',
     'jacket_hood',
-    'jumpsuit_sleeveless', 
-    'tee', 
+    'jumpsuit_sleeveless',
+    'tee',
     'tee_sleeveless',
-    'dress_sleeveless', 
+    'dress_sleeveless',
     'wb_dress_sleeveless',
-    'wb_pants_straight', 
+    'wb_pants_straight',
     'pants_straight_sides',
-    'skirt_2_panels', 
-    'skirt_4_panels', 
+    'skirt_2_panels',
+    'skirt_4_panels',
     'skirt_8_panels',
 ]
 
@@ -68,8 +68,8 @@ class LayersReader:
         for g_name, g_code in zip(GARMENT_TYPE, one_hot):
             self.garment_type[g_name] = g_code
 
-    """ 
-	Read sample info 
+    """
+	Read sample info
 	Input:
 	- sample: name of the sample e.g.:'01_01_s0'
 	"""
@@ -80,7 +80,7 @@ class LayersReader:
         for i in range(len(infos['garment'])):
             infos['garment'][i]['type'] = self.garment_type[infos['garment'][i]['name']]
         return infos
-        
+
     """ Human data """
     """
 	Read SMPL parameters for the specified sample and frame
@@ -103,7 +103,7 @@ class LayersReader:
         # since when generating, the scale is not applied to the trans
         trans = trans[frame].reshape(self.smpl[gender].trans_shape) * info['human']['scale']
         return gender, pose, shape, trans
-	
+
     """
 	Computes human mesh for the specified sample and frame
 	Inputs:
@@ -125,7 +125,7 @@ class LayersReader:
         F = self.smpl[gender].faces.copy()
         V += root_offset
         return V, F
-	
+
     """ Garment data """
     """
 	Reads garment vertices location for the specified sample, garment and frame
@@ -133,7 +133,7 @@ class LayersReader:
 	- sample: name of the sample
 	- garment: type of garment (e.g.: 'Tshirt', 'Jumpsuit', ...)
 	- frame: frame number
-	- absolute: True for absolute vertex locations, False for locations relative to SMPL root joint	
+	- absolute: True for absolute vertex locations, False for locations relative to SMPL root joint
 	Outputs:
 	- V: 3D vertex locations for the specified sample, garment and frame
 	"""
@@ -147,7 +147,7 @@ class LayersReader:
         if frame is not None:
             V = garment_seq['vertices'][frame]
         return V
-    
+
     """ Garment attr """
     """
 	Reads garment vertices location for the specified sample, garment and frame
@@ -180,7 +180,7 @@ class LayersReader:
         F = garment_seq['faces']
         T = garment_seq['tpose'] # T-pose templates
         return F, T
-    
+
     """ Garment data """
     """
 	Reads garment vertices location for the specified sample, garment and frame
@@ -195,28 +195,28 @@ class LayersReader:
         T = garment_seq['tpose']
         return V, F, T
 
-    """	
+    """
 	Reads garment UV map for the specified sample and garment
 	Inputs:
 	- sample: name of the sample
 	- garment: type of garment (e.g.: 'Tshirt', 'Jumpsuit', ...)
 	Outputs:
 	- Vt: UV map vertices
-	- Ft: UV map faces		
+	- Ft: UV map faces
 	"""
     def read_garment_UVMap(self, sample, garment):
         uv_path = os.path.join(self.generated_dir, sample, f"uv_{garment}.pkl")
         uv_groups = readPKL(uv_path)
         return uv_groups
 
-    """	
+    """
 	Reads patched garment masks and faces groups
 	Inputs:
 	- sample: name of the sample
 	- garment: type of garment (e.g.: 'Tshirt', 'Jumpsuit', ...)
 	Outputs:
 	- Vt: UV map vertices
-	- Ft: UV map faces		
+	- Ft: UV map faces
 	"""
     def read_patched_garment(self, sample, garment, patch_size=0.1):
         patch_dir = os.path.join(self.data_dir, 'data', sample)
@@ -241,8 +241,8 @@ class LayersReader:
                 faces=ft_list
             )
             writePKL(patch_path, data)
-        return data		
-	
+        return data
+
     def read_wind(self, sample, frame, info=None):
 		# Read garment vertices (relative to root joint)
         if info is None:
@@ -267,7 +267,7 @@ class LayersReader:
                     w_info = np.concatenate([rotations, strengths], axis=0)
                     break
         return w_info
-    
+
     def normalize_wind(self, wind_info):
         wind_info[:, -1] = (wind_info[:, -1] - WIND_RANGE['strength'][0]) / (WIND_RANGE['strength'][1] - WIND_RANGE['strength'][0])
         return wind_info

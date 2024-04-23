@@ -7,6 +7,7 @@ from mmcv import DictAction
 from layersnet.datasets import build_dataset
 from layersnet.utils import get_root_logger
 
+from layersnet.datasets.utils import writeH5, readH5
 
 def parse_args():
     parser = argparse.ArgumentParser(description='LayersNet')
@@ -14,6 +15,7 @@ def parse_args():
     parser.add_argument('--work_dir', type=str, default='', help='The log folder')
     parser.add_argument('--dataset', type=str, default='train', help='Dataset type. One of [train/val/test]')
     parser.add_argument('--type', type=str, default='dynamic', help='dynamic or static')
+    parser.add_argument('--seq', type=str, default=None, help='seq number')
     parser.add_argument('--save_dir', type=str, default=None, help='Save data folder')
     parser.add_argument(
         '--options', nargs='+', action=DictAction, help='arguments in dict')
@@ -23,7 +25,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-
     cfg = mmcv.Config.fromfile(args.config)
     if args.options is not None:
         cfg.merge_from_dict(args.options)
@@ -36,8 +37,8 @@ def main():
     log_file = osp.join(work_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file, log_level='INFO')
 
-    logger.info(f'Config:\n{cfg.pretty_text}')
-    
+    # logger.info(f'Config:\n{cfg.pretty_text}')
+
     logger.info('Save path {}'.format(work_dir))
 
     # build the dataloader
@@ -53,7 +54,7 @@ def main():
         # Val data
         logger.info('Generate test data')
         dataset = build_dataset(cfg.data.test)
-    
+
     if args.type == 'dynamic':
         dataset.generate_data(save_dir=args.save_dir, seq=args.seq)
     else:

@@ -19,30 +19,33 @@ class LayersDataset(BaseDataset):
         super(LayersDataset, self).__init__(env_cfg=env_cfg, phase=phase, **kwargs)
 
         # Dynamic statics
-        stat_path = os.path.join(self.env_cfg.layers_base.generated_dir, 'stat.h5')
-        stat = readH5(
-            ['position', 'velocity', 'acceleration', 'trans_position', 'trans_velocity', 'trans_acceleration'],
-            stat_path)
-        cov_stat = [cs[1:4] for cs in stat]
-        cov_stat = np.concatenate(cov_stat, axis=-1)
-        self.cov_stat = cov_stat[:, :9]
-        self.trans_cov_stat = cov_stat[:, 9:]
+        try:
+            stat_path = os.path.join(self.env_cfg.layers_base.generated_dir, 'stat.h5')
+            stat = readH5(
+                ['position', 'velocity', 'acceleration', 'trans_position', 'trans_velocity', 'trans_acceleration'],
+                stat_path)
+            cov_stat = [cs[1:4] for cs in stat]
+            cov_stat = np.concatenate(cov_stat, axis=-1)
+            self.cov_stat = cov_stat[:, :9]
+            self.trans_cov_stat = cov_stat[:, 9:]
 
-        stat = [self._reformat_stat(cs) for cs in stat]
-        stat = np.concatenate(stat, axis=-1)
-        # If the std = 0, it should be set to 1
-        stat[1, np.where(stat[1, :] == 0)] = 1.0
-        assert 9 == stat.shape[-1] / 2
-        self.stat = stat[:, :9]
-        self.trans_stat = stat[:, 9:]
-        
+            stat = [self._reformat_stat(cs) for cs in stat]
+            stat = np.concatenate(stat, axis=-1)
+            # If the std = 0, it should be set to 1
+            stat[1, np.where(stat[1, :] == 0)] = 1.0
+            assert 9 == stat.shape[-1] / 2
+            self.stat = stat[:, :9]
+            self.trans_stat = stat[:, 9:]
+        except Exception as e:
+            print(e)
+
         self.data_names = [
             'g_type',
             'name',
             'offset',
             'position', 'velocity', 'acceleration',
             'wind']
-    
+
     def _reformat_stat(self, cov_stat):
         mean = cov_stat[0]
         std = np.sqrt(np.diag(cov_stat[1:4]))
@@ -87,13 +90,14 @@ class LayersDataset(BaseDataset):
             training_seq = set([i[0] for i in self.data_list])
 
         # Pos, vel, acc
-        # mean 1*3, std 3*3, n 1*3 
+        # mean 1*3, std 3*3, n 1*3
         stats = [init_stat(dim=3, entry=5), init_stat(dim=3, entry=5), init_stat(dim=3, entry=5)]
         # Pos, vel, acc for human trans; only for relative input usages
         trans_stats = [init_stat(dim=3, entry=5), init_stat(dim=3, entry=5), init_stat(dim=3, entry=5)]
 
         if seq is not None:
             sample_list = [seq]
+
         for sample_idx, sample_num in enumerate(sample_list):
             if not os.path.isdir(os.path.join(data_dir, sample_num)):
                 continue
@@ -109,8 +113,9 @@ class LayersDataset(BaseDataset):
                 o['frame_start'] - sample_info['human']['frame_start']
                 for o in outer_forces[0]['pivot_list']] \
                     + [num_frame]
-
-            human_pos = [self.clothenv_reader.read_human(sample_num, i)[0] for i in range(sample_info['human']['seq_start'], sample_info['human']['seq_end'])]
+            human_pos = []
+            for i in range(sample_info['human']['seq_end'] - sample_info['human']['seq_start']):
+                human_pos.append(self.clothenv_reader.read_human(sample_num, i)[0])
             human_pos = np.stack(human_pos, axis=0)
             # Deal with global human movement
             ## num_frame, 3
@@ -127,7 +132,7 @@ class LayersDataset(BaseDataset):
                     # Invalid sim data
                     continue
                 garment_pos_list.append(garment_pos)
-            
+
             # Prepare init velocities and acceleories
             if len(human_pos) < 2:
                 continue
@@ -138,7 +143,7 @@ class LayersDataset(BaseDataset):
                 g_vel, g_acc = diff_pos(g_pos, dt=dt, padding=True)
                 garment_vel_list.append(g_vel)
                 garment_acc_list.append(g_acc)
-            
+
             seq_length = human_acc.shape[0]
             for frame_idx in tqdm.tqdm(range(seq_length)):
                 pos_list = []
@@ -181,7 +186,7 @@ class LayersDataset(BaseDataset):
                             break
 
                 offset_idx = np.cumsum(index_list)
-                
+
                 # Relative positions and vel and acc
                 pos_list = np.concatenate(pos_list, axis=0)
                 vel_list = np.concatenate(vel_list, axis=0)
@@ -235,60 +240,70 @@ class LayersDataset(BaseDataset):
             'trans_position', 'trans_velocity', 'trans_acceleration'],
             stats + trans_stats, stat_path)
         return
-    
+
     def generate_static_data(self, save_dir=None, seq=None):
         data_dir = os.path.join(self.clothenv_reader.data_dir, 'data')
         if save_dir is None:
             save_dir = self.clothenv_reader.generated_dir
         sample_list = os.listdir(data_dir)
+        existed_sample_list = os.listdir(save_dir)
 
         if seq is not None:
             sample_list = [seq]
         for sample_idx, sample_num in enumerate(sample_list):
             if not os.path.isdir(os.path.join(data_dir, sample_num)):
+                print('not a dir', sample_num)
                 continue
-            print(f"Processing {sample_num} {sample_idx}/{len(sample_list)}")
-            sample_info = self.clothenv_reader.read_info(sample_num)
-            garment_names = []
-            garment_offset = [0]
-            garment_face_offset = [0]
-            garment_faces = []
-            for g_meta in sample_info['garment']:
-                g_name = g_meta['name']
-                garment_names.append(g_name)
-                
-                garment_pos = self.clothenv_reader.read_garment_vertices(sample_num, g_name, frame=0)
-                if garment_pos is None:
-                    # Invalid sim data
-                    continue
-                garment_offset.append(garment_pos.shape[0])
-
-                F, _ = self.clothenv_reader.read_garment_topology(sample_num, g_name)
-                garment_faces.append(F)
-                garment_face_offset.append(F.shape[0])
-            # Add human faces
-            human_verts, human_faces = self.clothenv_reader.read_human(sample_num, frame=0)
-            garment_names.append("human")
-            garment_offset.append(human_verts.shape[0])
-            garment_faces.append(human_faces)
-            garment_face_offset.append(human_faces.shape[0])
-
-            garment_offset = np.cumsum(garment_offset)
-            for i in range(len(garment_offset)-1):
-                garment_faces[i] += garment_offset[i]
-            garment_faces = np.concatenate(garment_faces, axis=0)
-            garment_face_offset = np.cumsum(garment_face_offset)
-
             save_seq_dir = os.path.join(save_dir, sample_num)
+            if sample_num in existed_sample_list:
+                print(sample_num, "already processed.")
+                continue
+            try:
+                print(f"Processing {sample_num} {sample_idx}/{len(sample_list)}")
+                sample_info = self.clothenv_reader.read_info(sample_num)
+                garment_names = []
+                garment_offset = [0]
+                garment_face_offset = [0]
+                garment_faces = []
+                for g_meta in sample_info['garment']:
+                    g_name = g_meta['name']
+                    garment_names.append(g_name)
+
+                    garment_pos = self.clothenv_reader.read_garment_vertices(sample_num, g_name, frame=0)
+                    if garment_pos is None:
+                        # Invalid sim data
+                        continue
+                    garment_offset.append(garment_pos.shape[0])
+
+                    F, _ = self.clothenv_reader.read_garment_topology(sample_num, g_name)
+                    garment_faces.append(F)
+                    garment_face_offset.append(F.shape[0])
+                # Add human faces
+                human_verts, human_faces = self.clothenv_reader.read_human(sample_num, frame=0)
+                garment_names.append("human")
+                garment_offset.append(human_verts.shape[0])
+                garment_faces.append(human_faces)
+                garment_face_offset.append(human_faces.shape[0])
+
+                garment_offset = np.cumsum(garment_offset)
+                for i in range(len(garment_offset)-1):
+                    garment_faces[i] += garment_offset[i]
+                garment_faces = np.concatenate(garment_faces, axis=0)
+                garment_face_offset = np.cumsum(garment_face_offset)
+            except:
+                print(f'Failed to process {sample_num}, so skipping.')
+                continue
+
             mmcv.mkdir_or_exist(save_seq_dir)
             save_path = os.path.join(save_seq_dir, "static.h5")
+
             print(f"Saving static info to {save_path}")
             writeH5(
                 ['name', 'offset', 'face_offset', 'face'],
                 [garment_names, garment_offset, garment_face_offset, garment_faces],
                 save_path
             )
-    
+
     def covariance(self, data, mean):
         # return std^2
         n_verts, n_dim = data.shape
