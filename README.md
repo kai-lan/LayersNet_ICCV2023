@@ -46,7 +46,7 @@ pip3 install torch torchvision torchaudio
 ```
 3. install and build `mmcv`
 ```
-git clone git@github.com:open-mmlab/mmcv.git --branch 1.x
+git clone git@github.com:kai-lan/mmcv.git --branch 1.x
 cd mmcv
 MMCV_WITH_OPS=1 pip install -e .
 ```
@@ -76,30 +76,30 @@ python tools/preprocessing_data.py configs/layersnet/base/ep1.py --work_dir outp
 python tools/preprocessing_data.py configs/layersnet/base/ep1.py --work_dir output --dataset train --type dynamic
 ```
 
-TODO: update training and testing
+### Testing
+1. Rollout the results of one sequence, e.g., sequence `00396` here:
+```
+python tools/test.py configs/layersnet/base/test.py data/ckpt.pth --work_dir output --show-dir output --show-options rollout=396
+```
+2. Save quantitative results to a json file, e.g., `eval.json` here:
+```
+python tools/test.py configs/layersnet/base/test.py data/ckpt.pth --out output/00396/eval.json
+```
+
+### Visualization
+To visualize the output, here take 64th frame from sequence `00396` as example, please use the following command
+TODO: this can only visualize one frame at a time. How to generate a video from it?
+```
+python tools/visualization.py configs/layersnet/base/test.py --work_dir output --seq 396 --frame 64
+```
+
+TODO: update training
 ---
 ### Training
 Train on multiple GPUs
 ```
 sh tools/dist_seq.sh PATH/TO/CONFIG/DIR/ NUM_GPUS PATH/TO/WORK/DIR/ --seed 0
 ```
-
-### Testing
-1. Rollout the results of one sequence, e.g., sequence `00396` here:
-```
-python tools/test.py PATH/TO/CONFIG/FILE PATH/TO/CHECKPOINT --show-dir PATH/TO/SAVE/DIR/ --show-options rollout=396
-```
-2. Save quantitative results to a json file, e.g., `eval.json` here:
-```
-python tools/test.py PATH/TO/CONFIG/FILE PATH/TO/CHECKPOINT --out PATH/TO/SAVE/eval.json
-```
-
-### Visualization
-To visualize the output, here take 10th frame from sequence `00396` as example, please use the following command
-```
-python tools/visualization.py PATH/TO/CONFIG/FILE PATH/TO/ROLLOUT/DIR/ --seq 396 --frame 10
-```
-Please note that the `PATH/TO/ROLLOUT/DIR/` should be the same as `PATH/TO/SAVE/DIR/` in [Testing Section](#testing).
 
 ## Citations
 ```

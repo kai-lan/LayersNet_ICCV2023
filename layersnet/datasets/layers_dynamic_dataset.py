@@ -83,6 +83,7 @@ class LayersDataset(BaseDataset):
         if save_dir is None:
             save_dir = self.clothenv_reader.generated_dir
         sample_list = os.listdir(data_dir)
+        existed_sample_list = os.listdir(save_dir)
 
         # Only calculate mean_std in training set
         training_seq = set()
@@ -101,38 +102,45 @@ class LayersDataset(BaseDataset):
         for sample_idx, sample_num in enumerate(sample_list):
             if not os.path.isdir(os.path.join(data_dir, sample_num)):
                 continue
+            rollout_dir = os.path.join(save_dir, sample_num, "rollout")
+            # if os.path.exists(rollout_dir):
+            #     print(sample_num, "already processed.")
+            #     continue
             print(f"Processing {sample_num} {sample_idx}/{len(sample_list)}")
-            sample_info = self.clothenv_reader.read_info(sample_num)
-            dt = self.env_cfg.layers_base.dt
-            outer_forces = sample_info['wind']
-            assert len(outer_forces) == 1
+            try:
+                sample_info = self.clothenv_reader.read_info(sample_num)
+                dt = self.env_cfg.layers_base.dt
+                outer_forces = sample_info['wind']
+                assert len(outer_forces) == 1
 
-            num_frame = sample_info['human']['seq_end'] - sample_info['human']['seq_start']
+                num_frame = sample_info['human']['seq_end'] - sample_info['human']['seq_start']
 
-            outer_forces_idx = [
-                o['frame_start'] - sample_info['human']['frame_start']
-                for o in outer_forces[0]['pivot_list']] \
-                    + [num_frame]
-            human_pos = []
-            for i in range(sample_info['human']['seq_end'] - sample_info['human']['seq_start']):
-                human_pos.append(self.clothenv_reader.read_human(sample_num, i)[0])
-            human_pos = np.stack(human_pos, axis=0)
-            # Deal with global human movement
-            ## num_frame, 3
-            global_trans = np.stack([self.clothenv_reader.read_smpl_params(sample_num, frame)[-1].reshape(1, -1) for frame in range(num_frame)], axis=0)
-            garment_pos_list = []
-            garment_names = []
-            garment_types = []
-            for g_meta in sample_info['garment']:
-                g_name = g_meta['name']
-                garment_names.append(g_name)
-                garment_types.append(g_meta['type'])
-                garment_pos = self.clothenv_reader.read_garment_vertices(sample_num, g_name)
-                if garment_pos is None:
-                    # Invalid sim data
-                    continue
-                garment_pos_list.append(garment_pos)
-
+                outer_forces_idx = [
+                    o['frame_start'] - sample_info['human']['frame_start']
+                    for o in outer_forces[0]['pivot_list']] \
+                        + [num_frame]
+                human_pos = []
+                for i in range(num_frame):
+                    human_pos.append(self.clothenv_reader.read_human(sample_num, i)[0])
+                human_pos = np.stack(human_pos, axis=0)
+                # Deal with global human movement
+                ## num_frame, 3
+                global_trans = np.stack([self.clothenv_reader.read_smpl_params(sample_num, frame)[-1].reshape(1, -1) for frame in range(num_frame)], axis=0)
+                garment_pos_list = []
+                garment_names = []
+                garment_types = []
+                for g_meta in sample_info['garment']:
+                    g_name = g_meta['name']
+                    garment_names.append(g_name)
+                    garment_types.append(g_meta['type'])
+                    garment_pos = self.clothenv_reader.read_garment_vertices(sample_num, g_name)
+                    if garment_pos is None:
+                        # Invalid sim data
+                        continue
+                    garment_pos_list.append(garment_pos)
+            except:
+                print(f'Failed to process {sample_num}, so skipping.')
+                continue
             # Prepare init velocities and acceleories
             if len(human_pos) < 2:
                 continue
@@ -212,7 +220,7 @@ class LayersDataset(BaseDataset):
                         stat[4, :] = g_candidates[j].shape[0]
                         trans_stats[j] = combine_cov_stat(trans_stats[j], stat)
 
-                rollout_dir = os.path.join(save_dir, sample_num, "rollout")
+
                 mmcv.mkdir_or_exist(rollout_dir)
                 save_path = os.path.join(rollout_dir, f"{frame_idx}.h5")
                 # Encoding
