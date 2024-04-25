@@ -17,7 +17,7 @@ class MeshViewer:
             showscale=True,
         )
         self.data.append(mesh)
-    
+
     def show(self, clear=True, **kwargs):
         fig = go.Figure(data=self.data)
         fig.show()
